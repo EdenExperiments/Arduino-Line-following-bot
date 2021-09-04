@@ -1,0 +1,165 @@
+
+void setup() { 
+pinMode(3, OUTPUT);
+pinMode(11, OUTPUT);
+pinMode(A0, INPUT); 
+}
+void loop() {
+analogRead(A0);
+if ( analogRead(A0) > 550 ) {                                                          
+analogWrite(3, 60);
+analogWrite(11, 20); 
+}
+if ( analogRead(A0) < 480 ) {
+analogWrite(11, 60);
+analogWrite(3, 20);
+}
+else {
+analogWrite(11, 60);
+analogWrite(9, 60);
+} } 
+
+
+int LSW = A4;            //Sets pin A4 to the Left switch. LSW = left Switch.
+int RSW = A5;            //Sets pin A5 to the right switch. RSW = Right Switch.
+int sensorhead = A0;     //Sets pin A0 to the sensorhead, to record the voltage it gives off, dependent 
+                                           //on the light level reaching the photodiodes. 
+
+int LM = 3;              //Sets pin 3 to the left motor, allowing a variable of outputs to control the
+                                 // power supplied to the left wheel. LM = left Motor.
+int RM = 11;           //Sets pin 11 to the right motor, allowing a variable of outputs to control 
+                                 //the power supplied to the right wheel. RM = Right Motor.
+int CM = 9;             //Sets pin 9 to the centre motor, which will send inputs to control the power
+                                //supplied to the catapult stopper. CM = Centre Motor.
+int S = 8;                //Sets pin 8 to the solenoid, which will send an input to pull back a rod. 
+                               //S = Solenoid.
+
+int trigPin = 10;        //Sets pin 10 to the trigger pin on the distance sensor.
+int echoPin = 12;     //sets pin 12 to the echo pin on the distance sensor.
+long duration, cm, inches;
+int LS = 80;              //setting the global variable of LS (Left Speed) to 80/255.
+int RS = 80;             //Setting the global variable of RS (Right Speed) to 80/255.
+void setup() {
+pinMode(LSW, INPUT);          //We set the LSW and RSW pins to inputs and then enabled the pull up resistors.
+digitalWrite(LSW, HIGH);      //This was due to interference from other pins on previous runs that caused the
+pinMode(RSW, INPUT);          //Arduino to believe an input was received even if the switches had not been pressed.
+digitalWrite(RSW, HIGH);
+
+pinMode(LM, OUTPUT);  //We set pins LM, RM, CM and S to outputs, allowing the Arduino to send PWM signals
+pinMode(RM, OUTPUT);  //to the motors and solenoid, to send varied signals dependent on the place in the
+pinMode(CM, OUTPUT);  //line and how far the target is from the end.
+pinMode(S, OUTPUT);
+
+pinMode(trigPin, OUTPUT);  //The trigpin gets set as an output, as this is where we send the signal
+pinMode(echoPin, INPUT);   //to activate the distance sensor, sending off a wave to a target, it 
+                           //bounces back and when it has returned, it sends a pulse through the 
+                           //echo pin and to the arduino, where the time taken is recorded
+}
+void loop() {
+  
+  analogRead(LSW);              //This tells the arduino to read what value between 0 and 255
+  analogRead(RSW);              //the incoming signal from the switches represents and whether 
+  int LSWR = analogRead(LSW);   //they are being pressed down. We then set LSWR and RSWR to 
+  int RSWR = analogRead(RSW);   //these values to make later coding simpler
+  
+  if ( LSWR > 400 && RSWR < 400 )  {                 //If the left switch is pressed down and is
+     stopleft();    }                                                     //sending a signal greater than 400 because so, the arduino runs code "stopleft".
+  else if ( LSWR < 400 && RSWR > 400 )  {        //Similar to above, but for the right and it will run the code "stopright".                                           
+     stopright();   }                                                   
+  else if ( LSWR > 400 && RSWR > 400 )   {       //If both are pressed, then it will run "stopandlaunch"
+     stopandlaunch();  }                                         //however if none are pressed, then the Arduino will run "continuedrive"
+  else {  continuedrive();  }                                
+}
+
+void continuedrive() {
+//continue drive represents the part of the code which will cause the robot to move along
+//the line, it tries to analyse where on the line it currently is and then using that
+//information it will change the power of the motors individually to centre itself
+
+  analogRead(sensorhead);                         //We make the arduino record the input from the sensor
+  int R1 = analogRead(sensorhead);          //head and set it to R1. We then have a small delay before     
+  delay(10);                                                    //another seperate recording is made, we then make this                                  
+  analogRead(sensorhead);                       //equal to R2. This allows us to take one away from the 
+  int R2 = analogRead(sensorhead);        //other, to give an idea of how quickly the robot is 
+  int RoC = R1 - R2;                                    //coming off the line and on which side 
+                                   
+  if (RoC > 0)                                                //If RoC is greater than 0 (so the robot is coming off
+                                                                    //the right side of the line, then the arduino can increase
+  {                                                               //the power to the right motor, allowing it to centre itself.
+     analogWrite(LM, LS);                       //dependent on how quickly it is coming off the line it will
+     analogWrite(RM, RS+2*RoC);        //increase the speed a different amount dependent on RoC.
+
+     int LS = 80;                                       //We then set new local variables so it will continue along
+     int RS = 80 + 2*RoC;                       //the line with these wheel speeds. 
+  }
+  else if (RoC < 0)                                 //If RoC is less than 0 (so the robot is coming off the 
+  {                                                          //left side of the line, then similarly the arduino will 
+    analogWrite(RM, RS);                  //centre itself by increasing the power to the left motor.
+    analogWrite(LM, LS-2*RoC);     //before once again setting new local variables.
+
+    int LS = 80 - 2*RoC;
+    int RS = 80;
+  }
+  else {
+    analogWrite(LM, LS);             //If the Arduino reports no difference in readings
+    analogWrite(RM, RS);           //then it can be assumed it has the correct trajectory
+  }                                                 //and has no need to alter the speed of any wheels.
+}
+
+void stopright() {
+//the stopright section is because normally the robot reaches the end but the right side is rotated 
+//forward and hits the end first, stopping the robot completely, to overcome this we allow the robot
+//to continue applying a small amount of power to the left motor to rotate it clockwise slowly and
+//align itself straight so both switches are pressed against the end.
+  
+ analogWrite(LM, 30);
+ analogWrite(RM, 0);
+}
+
+ void stopleft() {
+//the stopleft section is similar to the previous stopright coding, except in the case where the left
+//left is rotated forward and the robot must turn anti-clockwise briefly.
+ 
+ analogWrite(LM, 30);
+ analogWrite(RM, 0);
+ 
+}
+
+void stopandlaunch() {
+//As said previously when both switches are pressed the stopandlaunch code runs, this section represents
+//the part of the code for when the robot has reached the end and must prepare and launch the catapult
+//dependent on the distance calculated with help of the distance sensor.
+   
+  analogWrite(LM, 0);   //First we ensure no power is being supplied to the wheels and allow a small
+  analogWrite(RM, 0);   //delay to ensure the the robot has stopped to a complete halt and is stable
+  delay(1000);                 //before we trigger the distance sensor.
+  
+  digitalWrite(trigPin, LOW);    //The sensor is triggered by a High pulse of 10 microseconds or more,
+  delayMicroseconds(5);          //to ensure a clean HIGH pulse we ensure a short LOW pulse beforehand.
+  digitalWrite(trigPin, HIGH);   //Once the HIGH pulse has been sent we set it back to a LOW pulse.
+  delayMicroseconds(10);
+  digitalWrite(trigPin, LOW);
+ 
+  int duration = pulseIn(echoPin, HIGH); //We read the signal back from the sensor, the duration 
+  int cm = (duration/2) / 29.1;         //coming back in microseconds, from the time of the trigger
+                                                             //to the time of the echo being recorded and sending a pulse.
+                                                            //We then convert the time into a distance using this equation.
+  digitalWrite(CM, HIGH);               //Now that we know the distance we can place the distance into                
+  delay(3000-30*cm);                      //code to ensure the centre motor powering the catapult is 
+  digitalWrite(CM, LOW);               //powered for a certain amount of time dependent on distance.
+                                                           //As it is already set for three metres, we set it so that 
+                                                          //when it runs longer the closer the target is.
+                                         
+  digitalWrite(S, HIGH);                 //Now that the catapult is ready to launch we send a short 
+  delay(2000);                                //pulse to the solenoid to launch the ball to the target.
+  digitalWrite(S, LOW);
+  
+  delay(50000);                            //A long delay to be able to turn off the machine.
+  
+}                                                      
+                                                                                           
+
+  
+ 
+          
+       
